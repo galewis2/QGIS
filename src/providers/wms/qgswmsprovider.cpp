@@ -330,18 +330,19 @@ QgsWmsProvider::~QgsWmsProvider()
 }
 
 //! Returns the destination extent in image coordinate of a tile image defined by its extent
-static QRect destinationRect( const QgsRectangle &destinationExtent, const QRectF &tileImageExtent, int imagePixelWidth )
+static QRect destinationRect( const QgsRectangle &destinationExtent, const QRectF &tileImageExtent, int imagePixelWidth, int imagePixelHeight )
 {
-  const double mapUnitsPerPixel = destinationExtent.width() / imagePixelWidth;
+  const double mapUnitsPerPixelX = destinationExtent.width() / imagePixelWidth;
+  const double mapUnitsPerPixelY = destinationExtent.height() / imagePixelHeight;
 
   // note -- we round to exact pixel boundaries here, as we know that we'll always be drawing the
   // tiles using a painter with a pixel-based image device. We always expand out the rect to the nearest
   // pixel (instead of shrinking), in order to avoid any chance of visible gaps between tiles
 
-  const int left = static_cast< int >( std::floor( ( tileImageExtent.left() - destinationExtent.xMinimum() ) / mapUnitsPerPixel ) );
-  const int right = static_cast< int >( std::ceil( ( tileImageExtent.right() - destinationExtent.xMinimum() ) / mapUnitsPerPixel ) );
-  const int top = static_cast< int >( std::floor( ( destinationExtent.yMaximum() - tileImageExtent.bottom() ) / mapUnitsPerPixel ) );
-  const int bottom = static_cast< int >( std::ceil( ( destinationExtent.yMaximum() - tileImageExtent.top() ) / mapUnitsPerPixel ) );
+  const int left = static_cast< int >( std::floor( ( tileImageExtent.left() - destinationExtent.xMinimum() ) / mapUnitsPerPixelX ) );
+  const int right = static_cast< int >( std::ceil( ( tileImageExtent.right() - destinationExtent.xMinimum() ) / mapUnitsPerPixelX ) );
+  const int top = static_cast< int >( std::floor( ( destinationExtent.yMaximum() - tileImageExtent.bottom() ) / mapUnitsPerPixelY ) );
+  const int bottom = static_cast< int >( std::ceil( ( destinationExtent.yMaximum() - tileImageExtent.top() ) / mapUnitsPerPixelY ) );
 
   return QRect( left, top, right - left, bottom - top );
 }
@@ -714,7 +715,7 @@ static bool _fuzzyContainsRect( const QRectF &r1, const QRectF &r2 )
 }
 
 void QgsWmsProvider::fetchOtherResTiles(
-  QgsTileMode tileMode, const QgsRectangle &viewExtent, int imageWidth, QList<QRectF> &missingRects, double tres, int resOffset, QList<TileImage> &otherResTiles, QgsRasterBlockFeedback *feedback
+  QgsTileMode tileMode, const QgsRectangle &viewExtent, int imageWidth, int imageHeight, QList<QRectF> &missingRects, double tres, int resOffset, QList<TileImage> &otherResTiles, QgsRasterBlockFeedback *feedback
 )
 {
   if ( !mTileMatrixSet )
@@ -772,7 +773,7 @@ void QgsWmsProvider::fetchOtherResTiles(
     if ( !QgsTileCache::tile( r.url, localImage ) )
       continue;
 
-    const QRect dst = destinationRect( viewExtent, r.rect, imageWidth );
+    const QRect dst = destinationRect( viewExtent, r.rect, imageWidth, imageHeight );
     otherResTiles << TileImage( dst, localImage, false );
 
     // see if there are any missing rects that are completely covered by this tile
@@ -975,9 +976,10 @@ QImage QgsWmsProvider::draw( const QgsRectangle &viewExtent, int pixelWidth, int
 #ifdef QGISDEBUG
     int n = ( col1 - col0 + 1 ) * ( row1 - row0 + 1 );
     QgsDebugMsgLevel( u"tile number: %1x%2 = %3"_s.arg( col1 - col0 + 1 ).arg( row1 - row0 + 1 ).arg( n ), 3 );
-    if ( n > 256 && !mSettings.mIsMBTiles )
+    constexpr int maxDebugTileRequests = 10000;
+    if ( n > maxDebugTileRequests && !mSettings.mIsMBTiles )
     {
-      emit statusChanged( u"current view would need %1 tiles. tile request per draw limited to 256."_s.arg( n ) );
+      emit statusChanged( u"current view would need %1 tiles. tile request per draw limited to %2."_s.arg( n ).arg( maxDebugTileRequests ) );
       return image;
     }
 #endif
@@ -1057,7 +1059,7 @@ QImage QgsWmsProvider::draw( const QgsRectangle &viewExtent, int pixelWidth, int
           }
         }
 
-        const QRect dst = destinationRect( effectiveViewExtent, r.rect, image.width() );
+        const QRect dst = destinationRect( effectiveViewExtent, r.rect, image.width(), image.height() );
 
         // if image size is "close enough" to destination size, don't smooth it out. Instead try for pixel-perfect placement!
         bool disableSmoothing = mConverter || ( qgsDoubleNear( dst.width(), tm->tileWidth, 2 ) && qgsDoubleNear( dst.height(), tm->tileHeight, 2 ) );
@@ -1100,9 +1102,9 @@ QImage QgsWmsProvider::draw( const QgsRectangle &viewExtent, int pixelWidth, int
       // first we check lower resolution tiles: one level back, then two levels back (if there is still some area not covered),
       // finally (in the worst case we use one level higher resolution tiles). This heuristic should give
       // good overviews while not spending too much time drawing cached tiles from resolutions far away.
-      fetchOtherResTiles( tileMode, effectiveViewExtent, pixelWidth, missing, tm->tres, 1, lowerResTiles, feedback );
-      fetchOtherResTiles( tileMode, effectiveViewExtent, pixelWidth, missing, tm->tres, 2, lowerResTiles2, feedback );
-      fetchOtherResTiles( tileMode, effectiveViewExtent, pixelWidth, missing, tm->tres, -1, higherResTiles, feedback );
+      fetchOtherResTiles( tileMode, effectiveViewExtent, image.width(), image.height(), missing, tm->tres, 1, lowerResTiles, feedback );
+      fetchOtherResTiles( tileMode, effectiveViewExtent, image.width(), image.height(), missing, tm->tres, 2, lowerResTiles2, feedback );
+      fetchOtherResTiles( tileMode, effectiveViewExtent, image.width(), image.height(), missing, tm->tres, -1, higherResTiles, feedback );
 
       if ( feedback && feedback->isCanceled() )
       {
@@ -5091,7 +5093,7 @@ void QgsWmsTiledImageDownloadHandler::tileReplyFinished()
           mEffectiveViewExtent = initializeBufferedImage( mViewExtent, mSourceResolution, mImage );
         }
 
-        const QRect dst = destinationRect( mEffectiveViewExtent, r, mImage->width() );
+        const QRect dst = destinationRect( mEffectiveViewExtent, r, mImage->width(), mImage->height() );
 
         QPainter p( mImage );
         // if image size is "close enough" to destination size, don't smooth it out. Instead try for pixel-perfect placement!

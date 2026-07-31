@@ -514,7 +514,7 @@ class QgsWmsProvider final : public QgsRasterDataProvider
     } TileImage;
     //! Gets tiles from a different resolution to cover the missing areas
     void fetchOtherResTiles(
-      QgsTileMode tileMode, const QgsRectangle &viewExtent, int imageWidth, QList<QRectF> &missing, double tres, int resOffset, QList<TileImage> &otherResTiles, QgsRasterBlockFeedback *feedback = nullptr
+      QgsTileMode tileMode, const QgsRectangle &viewExtent, int imageWidth, int imageHeight, QList<QRectF> &missing, double tres, int resOffset, QList<TileImage> &otherResTiles, QgsRasterBlockFeedback *feedback = nullptr
     );
 
     /**

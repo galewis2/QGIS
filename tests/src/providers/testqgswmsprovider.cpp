@@ -17,6 +17,7 @@
 #include "qgsproviderregistry.h"
 #include "qgsprovidersublayerdetails.h"
 #include "qgsproviderutils.h"
+#include "qgsrasterblock.h"
 #include "qgsrasteridentifyresult.h"
 #include "qgsrasterlayer.h"
 #include "qgssinglebandgrayrenderer.h"
@@ -24,9 +25,12 @@
 #include "qgswmsprovider.h"
 #include "qgsxyzconnection.h"
 
+#include <QDir>
 #include <QFile>
+#include <QImage>
 #include <QObject>
 #include <QString>
+#include <QTemporaryDir>
 #include <QUrlQuery>
 
 using namespace Qt::StringLiterals;
@@ -76,6 +80,8 @@ class TestQgsWmsProvider : public QgsTest
     void testMbtilesProviderMetadata();
 
     void testDpiDependentData();
+
+    void testAnisotropicXyzBlock();
 
     void providerUriUpdates();
 
@@ -473,6 +479,42 @@ void TestQgsWmsProvider::providerUriUpdates()
     "url=http%3A%2F%2Flocalhost%3A8380%2Fmapserv"
   );
   QCOMPARE( updatedUri, expectedUri );
+}
+
+void TestQgsWmsProvider::testAnisotropicXyzBlock()
+{
+  QTemporaryDir temporaryDir;
+  QVERIFY( temporaryDir.isValid() );
+
+  const QList<QList<QRgb>> colors {
+    { qRgb( 255, 0, 0 ), qRgb( 0, 255, 0 ) },
+    { qRgb( 0, 0, 255 ), qRgb( 255, 255, 0 ) }
+  };
+  for ( int column = 0; column < 2; ++column )
+  {
+    QVERIFY( QDir().mkpath( temporaryDir.filePath( u"1/%1"_s.arg( column ) ) ) );
+    for ( int row = 0; row < 2; ++row )
+    {
+      QImage tile( 256, 256, QImage::Format_ARGB32 );
+      tile.fill( colors[row][column] );
+      QVERIFY( tile.save( temporaryDir.filePath( u"1/%1/%2.png"_s.arg( column ).arg( row ) ) ) );
+    }
+  }
+
+  const QString tileUrl = QUrl::fromLocalFile( temporaryDir.path() ).toString() + u"/%7Bz%7D/%7Bx%7D/%7By%7D.png"_s;
+  QgsRasterLayer layer( u"crs=EPSG:3857&tilePixelRatio=1&type=xyz&url=%1&zmax=1&zmin=1"_s.arg( tileUrl ), u"anisotropic xyz"_s, u"wms"_s );
+  QVERIFY( layer.isValid() );
+
+  constexpr int width = 400;
+  constexpr int height = 100;
+  std::unique_ptr<QgsRasterBlock> block( layer.dataProvider()->block( 1, layer.extent(), width, height ) );
+  QVERIFY( block );
+  QVERIFY( block->isValid() );
+  QVERIFY( !block->isEmpty() );
+  QCOMPARE( block->color( 25, 100 ), colors[0][0] );
+  QCOMPARE( block->color( 25, 300 ), colors[0][1] );
+  QCOMPARE( block->color( 75, 100 ), colors[1][0] );
+  QCOMPARE( block->color( 75, 300 ), colors[1][1] );
 }
 
 void TestQgsWmsProvider::providerUriLocalFile()

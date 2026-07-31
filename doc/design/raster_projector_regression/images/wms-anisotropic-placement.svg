@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="650" viewBox="0 0 1200 650" role="img" aria-labelledby="title desc">
+  <title id="title">Independent X and Y tile placement</title>
+  <desc id="desc">A two by two XYZ tile grid is placed in a wide, short output image. Horizontal and vertical map units per pixel must be calculated independently.</desc>
+  <style>
+    text { font-family: sans-serif; fill: #172033; }
+    .title { font-size: 28px; font-weight: 700; }
+    .label { font-size: 19px; font-weight: 700; }
+    .copy { font-size: 16px; }
+    .formula { font-family: monospace; font-size: 16px; }
+    .outline { fill: none; stroke: #172033; stroke-width: 3; }
+    .thin { fill: none; stroke: #64748b; stroke-width: 2; }
+  </style>
+  <rect width="1200" height="650" fill="#f7f9fc"/>
+  <text class="title" x="60" y="58">XYZ tile placement must preserve both output axes</text>
+  <text class="copy" x="60" y="88">The projector can request an anisotropic source block. The WMS provider must map tile extents with independent X and Y resolutions.</text>
+
+  <rect x="60" y="145" width="340" height="340" rx="4" fill="#ffffff" stroke="#172033" stroke-width="3"/>
+  <rect x="60" y="145" width="170" height="170" fill="#ef6b5b"/>
+  <rect x="230" y="145" width="170" height="170" fill="#5dbb73"/>
+  <rect x="60" y="315" width="170" height="170" fill="#4d8dd8"/>
+  <rect x="230" y="315" width="170" height="170" fill="#f2c84b"/>
+  <path class="outline" d="M60 315H400M230 145V485"/>
+  <text class="label" x="60" y="125">Tile extents in map coordinates</text>
+  <text class="copy" x="112" y="238">tile 0,0</text>
+  <text class="copy" x="282" y="238">tile 1,0</text>
+  <text class="copy" x="112" y="408">tile 0,1</text>
+  <text class="copy" x="282" y="408">tile 1,1</text>
+
+  <path d="M440 315H570" fill="none" stroke="#172033" stroke-width="4"/>
+  <path d="M570 315L548 302M570 315L548 328" fill="none" stroke="#172033" stroke-width="4"/>
+  <text class="label" x="438" y="275">destinationRect()</text>
+
+  <rect x="630" y="145" width="500" height="125" rx="4" fill="#ffffff" stroke="#172033" stroke-width="3"/>
+  <rect x="630" y="145" width="250" height="62.5" fill="#ef6b5b"/>
+  <rect x="880" y="145" width="250" height="62.5" fill="#5dbb73"/>
+  <rect x="630" y="207.5" width="250" height="62.5" fill="#4d8dd8"/>
+  <rect x="880" y="207.5" width="250" height="62.5" fill="#f2c84b"/>
+  <path class="outline" d="M630 207.5H1130M880 145V270"/>
+  <text class="label" x="630" y="125">Anisotropic output buffer: 400 x 100 pixels</text>
+  <path class="thin" d="M630 295V320M1130 295V320M630 308H1130"/>
+  <text class="copy" x="802" y="345">image width</text>
+  <path class="thin" d="M1155 145H1180M1155 270H1180M1168 145V270"/>
+  <text class="copy" x="1000" y="380">image height</text>
+
+  <rect x="60" y="540" width="1070" height="70" rx="4" fill="#e8f1fb" stroke="#4d8dd8" stroke-width="2"/>
+  <text class="formula" x="82" y="568">mapUnitsPerPixelX = destinationExtent.width() / image.width()</text>
+  <text class="formula" x="82" y="594">mapUnitsPerPixelY = destinationExtent.height() / image.height()</text>
+  <text class="copy" x="700" y="581">Using X for Y shifts rows when the scales differ.</text>
+</svg>

@@ -182,6 +182,7 @@ set(TESTS
  testqgsrasterlayer.cpp
  testqgsrasterlayertemporalproperties.cpp
  testqgsrastermarker.cpp
+ testqgsrasterprojector.cpp
  testqgsrastersublayer.cpp
  testqgsrelationreferencefieldformatter.cpp
  testqgsrenderers.cpp
